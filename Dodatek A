@@ -5,88 +5,88 @@ import matplotlib.pyplot as plt
 import os
 import datetime
 
-# Ustvari novo mapo z edinstvenim imenom
+# Create a new folder with a unique name based on the current timestamp
 def create_unique_folder(base_name="results"):
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_name = f"{base_name}_{timestamp}"
     os.makedirs(folder_name, exist_ok=True)
     return folder_name
 
-# Prebere CSV datoteko in izračuna povprečje vrednosti pikslov za vsako razdaljo
+# Read the CSV file and average the pixel values for each distance
 def read_csv(file_name):
     distances = []
     pixel_data = []
 
     with open(file_name, mode='r') as file:
         csv_reader = csv.reader(file)
-        next(csv_reader)  # Preskoči glavo
+        next(csv_reader)  # Skip header
         for row in csv_reader:
             distances.append(float(row[0]))
             pixels = [float(px) for px in row[1:]]
-            pixel_data.append(np.mean(pixels))  # Uporabi povprečno vrednost piksla
+            pixel_data.append(np.mean(pixels))  # Use the average pixel value
 
     return np.array(distances), np.array(pixel_data)
 
-# Podane formule za izračun višine
+# Provided formulas to calculate height
 def calculate_height(px, f0, D, sensorY, f):
-    cameraY = 1080  # vertikalna ločljivost senzorja
+    cameraY = 1080  # sensor vertical resolution
     b = f
 
     def calcH(b):
         fi = np.arctan(px * (sensorY / 2) / (cameraY / 2) / b)
         h = D / np.tan(f0 - fi)
-        return h, fi  # Vrne h in fi kot tuple
+        return h, fi  # Return both h and fi as a tuple
     
     h, fi = calcH(b)
     return h
 
-# Funkcija za pretvorbo vrednosti piksla v razdaljo z uporabo parametrov
+# Function to convert pixel value to distance using the parameters
 def px2d(px, f0, f, Y, D):
     heights = calculate_height(px, f0, D, Y, f)
     return heights
 
-# Definira funkcijo napake
+# Define the error function
 def error_function(params, measured_distances, pixel_data):
     f0 = params[0]
     f = params[1]
     Y = params[2]
     D = params[3]
-    # začasna rešitev:
+    # workaround:
 
 
     calculated_distances = px2d(pixel_data, f0, f, Y, D)
     total_error = np.sum(np.sqrt((calculated_distances-measured_distances)**2))
-    #vsota_napake = np.sum((izracunane_razdalje-izmerjene_razdalje)**2)
+    #total_error = np.sum((calculated_distances-measured_distances)**2)
 
     # for D_measured, px in zip(measured_distances, pixel_data):
     #     estimated_distance = px2d(px, f0, f, Y, D)
     #     error = np.abs(estimated_distance - D_measured)
-    #     total_error += np.sum(error**2)  # Vsota kvadratov napak
+    #     total_error += np.sum(error**2)  # Sum of squared errors
     #     pass
 
     return total_error
 
-# Glavni skript
+# Main script
 if __name__ == "__main__":
-    input_file = "distances_and_pixels_FULL_RANGE_Final.csv" 
+    input_file = "distances_and_pixels_FULL_RANGE_Final.csv"  # Corrected file path
     measured_distances, pixel_data = read_csv(input_file)
     measured_distances += 122
     
-    # Začetni približek za parametre [f0, f, Y, D]
-    initial_guess = [30, 3.67, 3.6, 50] 
+    # Initial guess for parameters [f0, f, Y, D]
+    initial_guess = [30, 3.67, 3.6, 50]  # Replace with reasonable guesses
 
-    # Ustvari edinstveno mapo za shranjevanje rezultatov
+    # Create a unique folder to save the results
     result_folder = create_unique_folder()
 
-    # Izvede optimizacijo
+    # Perform optimization
     res = minimize(error_function, initial_guess, args=(measured_distances, pixel_data), method='nelder-mead', options={'xatol': 1e-8, 'disp': True})
     
-    # Izpiše podrobnosti procesa optimizacije
-    optimization_result_str = (f"Optimizacija uspešno zaključena.\n"
-                               f"Trenutna vrednost funkcije: {res.fun:.6f}\n"
-                               f"Iteracije: {res.nit}\n"
-                               f"Evalvacije funkcije: {res.nfev}\n"
-                               f"Rezultati optimizacije:\n"
+    # Print optimization process details
+    optimization_result_str = (f"Optimization terminated successfully.\n"
+                               f"Current function value: {res.fun:.6f}\n"
+                               f"Iterations: {res.nit}\n"
+                               f"Function evaluations: {res.nfev}\n"
+                               f"Optimization results:\n"
                                f"f0: {res.x[0]:.3f}\n"
                                f"f: {res.x[1]:.3f}\n"
                                f"Y: {res.x[2]:.3f}\n"
@@ -94,42 +94,42 @@ if __name__ == "__main__":
 
     print(optimization_result_str)
 
-    # Shrani začetne približke in rezultate optimizacije v datoteko
+    # Save the initial guess values and optimization results to a file
     with open(os.path.join(result_folder, "optimization_results.txt"), "w") as file:
-        file.write("Vrednosti začetnih približkov:\n")
+        file.write("Initial guess values:\n")
         file.write(f"f0: {initial_guess[0]:.3f}\n")
         file.write(f"f: {initial_guess[1]:.3f}\n")
         file.write(f"Y: {initial_guess[2]:.3f}\n")
         file.write(f"D: {initial_guess[3]:.3f}\n\n")
         file.write(optimization_result_str)
 
-    # Izrisovanje rezultatov
+    # Plotting results
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 12))
 
-    # Izrisovanje izračunanih višin
+    # Plotting calculated heights
     calculated_heights = np.array([calculate_height(px, res.x[0], res.x[3], res.x[2], res.x[1]) for px in pixel_data])
-    ax1.plot(measured_distances, calculated_heights, label='Izračunane višine')
-    ax1.set_xlabel('Izmerjene razdalje')
-    ax1.set_ylabel('Izračunane višine')
+    ax1.plot(measured_distances, calculated_heights, label='Calculated Heights')
+    ax1.set_xlabel('Measured Distances')
+    ax1.set_ylabel('Calculated Heights')
     ax1.legend()
 
-    # Izrisovanje primerjave izmerjenih in ocenjenih razdalj
+    # Plotting measured distances vs. estimated distances
     estimated_distances = np.array([px2d(px, res.x[0], res.x[1], res.x[2], res.x[3]) for px in pixel_data])
-    ax2.plot(measured_distances, estimated_distances, label='Ocenjene razdalje', linestyle='--')
-    ax2.set_xlabel('Izmerjene razdalje')
-    ax2.set_ylabel('Ocenjene razdalje')
+    ax2.plot(measured_distances, estimated_distances, label='Estimated Distances', linestyle='--')
+    ax2.set_xlabel('Measured Distances')
+    ax2.set_ylabel('Estimated Distances')
     ax2.legend()
 
-    # Izrisovanje napak
+    # Plotting errors
     errors = np.array([px2d(px, res.x[0], res.x[1], res.x[2], res.x[3]) - D_measured for px, D_measured in zip(pixel_data, measured_distances)])
-    ax3.plot(measured_distances, errors, label='Napake', linestyle='-', marker='o', color='red')
-    ax3.set_xlabel('Izmerjene razdalje')
-    ax3.set_ylabel('Napake (Ocenjeno - Izmerjeno)')
+    ax3.plot(measured_distances, errors, label='Errors', linestyle='-', marker='o', color='red')
+    ax3.set_xlabel('Measured Distances')
+    ax3.set_ylabel('Errors (Estimated - Measured)')
     ax3.legend()
 
     plt.tight_layout()
 
-    # Shrani grafe v mapo z rezultati
+    # Save the plots to the result folder
     fig.savefig(os.path.join(result_folder, "results_plot.png"))
 
     plt.show()
